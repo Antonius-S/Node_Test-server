@@ -1,0 +1,16 @@
+{
+  "name": "test-tcp-server",
+  "version": "0.0.1",
+  "description": "Controllable TCP server to test connection failures",
+  "author": "A_S",
+  "license": "MIT",
+  "main": "index.js",
+  "keywords": [
+    "test",
+    "tcp",
+    "server"
+  ],
+  "engines": {
+    "node": ">= 10.16.0 < 11.x || >= 11.13.0"
+  }
+}
