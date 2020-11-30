@@ -23,6 +23,8 @@ If `set` is empty, server just does nothing with the connection
 - `SEND=resp` - write `resp` string (URL-encoding is supported)
 - `WAIT=time` - wait for `time` msecs
 
+Any combination and order of actions is allowed.
+
 Request could contain any other characters besides action set:
 
 ```

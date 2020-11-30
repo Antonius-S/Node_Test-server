@@ -3,7 +3,6 @@
 // ~~ Req ~~
 const net = require('net');
 const crypto = require('crypto');
-const querystring = require('querystring');
 const os = require('os');
 
 // ~~ Constants ~~
@@ -80,7 +79,7 @@ async function act_close(socket)
  */
 async function act_send(socket, data)
 {
-  await promisifyCbAndError(socket, socket.write, data);
+  await promisifyCbAndError(socket, socket.write, data ? unescape(data) : data);
 }
 
 /**
@@ -122,7 +121,7 @@ function log(...args)
 /**
   Parse string with actions
     @param {String} request - string
-    @returns {Object} action=>param object. Empty object could be returned as well
+    @returns {Array<{cmd: String, param: String}>} array of actions with params. Empty array could be returned as well
  */
 function parseRequest(request)
 {
@@ -130,34 +129,37 @@ function parseRequest(request)
     return undefined;
   const actStr = request.slice(request.indexOf(ACT_SIGN_OPEN) + ACT_SIGN_OPEN.length, request.indexOf(ACT_SIGN_CLOSE));
   if (actStr == '')
-    return {};
-  return querystring.parse(actStr, ACT_SEP);
+    return [];
+  const result = [];
+  const actions = actStr.split(ACT_SEP);
+  for (const item of actions)
+    result.push({cmd: item.split('=')[0], param: item.split('=')[1]});
+  return result;
 }
 
 /**
   Execute actions over a socket listed in actions object
     @param {net.Socket} socket - socket
-    @param {Object} actions - list of actions and parameters
+    @param {Array<{cmd: String, param: String}>} actions - list of actions and parameters
  */
 async function execActions(socket, actions)
 {
   // Empty actions - just do nothing
-  if (Object.keys(actions) == 0)
+  if (actions.length == 0)
   {
     log('No actions defined - do nothing');
     return;
   }
-
-  for (const key in actions)
+  for (const item of actions)
   {
-    if (!METHOD_MAP[key])
+    if (!METHOD_MAP[item.cmd])
     {
-      log('ERROR - Unknown action', key);
+      log('ERROR - Unknown action', item.cmd);
       socket.end();
       return;
     }
-    log(`Executing action ${key}${actions[key] ? ': ' + actions[key].trim() : ''}`);
-    await METHOD_MAP[key](socket, actions[key]);
+    log(`Executing action ${item.cmd}${item.param ? ': ' + item.param.trim() : ''}`);
+    await METHOD_MAP[item.cmd](socket, item.param);
   }
 }
 
