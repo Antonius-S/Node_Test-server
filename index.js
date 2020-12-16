@@ -27,13 +27,15 @@ const ACTION_DESCR = {
 const DEF_PORT = 11111;
 
 const USAGE = [
-  'TCP server for testing purposes. Behavior is controlled by request text.',
+  'TCP server for testing purposes. Behavior is controlled by global parameter or request text.',
   'Usage:',
-  'node <scriptname.js> [port]',
+  'node <scriptname.js> [port] [actionset]',
   `  port - port number to listen (default is ${DEF_PORT})`,
+  '  actionset - global set or actions for all clients (see below)',
   'Request must contain action set:',
   ` "${ACT_SIGN_OPEN}"<set>"${ACT_SIGN_CLOSE}"`,
   `   <set> ::= "" | <action>[=<param>][${ACT_SEP}<action>[=<param>]]...`,
+  '   After executing all actions connection is left active.',
   '   If <set> is empty, server just does nothing with the connection',
   '   <action>:',
   ...Object.keys(ACTION_DESCR).map((item) => `    - ${item}${ACTION_DESCR[item]}`)
@@ -176,32 +178,49 @@ if (args.length == 1 && ['/?', '-?', '?'].indexOf(args[0]) != -1)
 }
 
 let portNum = DEF_PORT;
-if (args.length == 1)
-  portNum = Number(args[0]);
+let globActions = undefined; // global actions
+while (args.length > 0)
+{
+  if (!isNaN(Number(args[0])))
+    portNum = Number(args[0]);
+  else
+  {
+    globActions = parseRequest(args[0]);
+    if (!globActions)
+    {
+      console.log('Action list is incorrect', args[0]);
+      return;
+    }
+  }
+  args.shift();
+}
 
 const srv = net.createServer();
 srv.on('connection',
   (socket) =>
   {
     log('Socket connected');
-    socket.on('data',
-      (data) =>
-      {
-        const reqStr = data.toString();
-        log('Socket IN:', reqStr);
-        if (socket.dataGot) return;
-        socket.dataGot = true;
-
-        const actions = parseRequest(reqStr);
-        if (!actions)
+    if (globActions)
+      execActions(socket, globActions);
+    else
+      socket.on('data',
+        (data) =>
         {
-          log('Request incorrect');
-          socket.end();
-          return;
-        }
+          const reqStr = data.toString();
+          log('Socket IN:', reqStr);
+          if (socket.dataGot) return;
+          socket.dataGot = true;
 
-        execActions(socket, actions);
-      });
+          const actions = parseRequest(reqStr);
+          if (!actions)
+          {
+            log('Request incorrect');
+            socket.end();
+            return;
+          }
+
+          execActions(socket, actions);
+        });
     socket.on('close', ()=>log('Socket Closed'));
     socket.on('error', (err)=>log('Socket Error', err));
   }
