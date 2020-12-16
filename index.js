@@ -16,12 +16,14 @@ const ACT_CLOSE = 'CLOSE';
 const ACT_SEND = 'SEND';
 const ACT_DATA = 'DATA';
 const ACT_WAIT = 'WAIT';
+const ACT_SHUT = 'SHUT';
 
 const ACTION_DESCR = {
   [ACT_CLOSE]: ' - close connection',
   [ACT_DATA]: '=length - write <length> of random data',
   [ACT_SEND]: '=resp - write <resp> string (URL-encoding is supported)',
-  [ACT_WAIT]: '=time - wait for <time> msecs'
+  [ACT_WAIT]: '=time - wait for <time> msecs',
+  [ACT_SHUT]: ' - stop the server from listening (won\'t close active connections)'
 };
 
 const DEF_PORT = 11111;
@@ -104,11 +106,21 @@ async function act_wait(socket, time)
   await new Promise((resolve) => { setTimeout(resolve, Number(time)); });
 }
 
+/**
+  Shutdown the server
+    @param {net.Socket} socket - socket
+ */
+async function act_shut(socket)
+{
+  await new Promise((resolve) => { socket.server.close(resolve); });
+}
+
 const METHOD_MAP = {
   [ACT_CLOSE]: act_close,
   [ACT_DATA]: act_data,
   [ACT_SEND]: act_send,
-  [ACT_WAIT]: act_wait
+  [ACT_WAIT]: act_wait,
+  [ACT_SHUT]: act_shut
 };
 
 /**
@@ -200,6 +212,9 @@ srv.on('connection',
   (socket) =>
   {
     log('Socket connected');
+    // this field is not in official API so ensuring it's assigned
+    if (!socket.server)
+      socket.server = srv;
     if (globActions)
       execActions(socket, globActions);
     else
